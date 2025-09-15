@@ -1,0 +1,5 @@
+{
+  "name": "PacePerfect Running Plan Generator",
+  "description": "A minimalist web application that generates personalized running training plans for various race distances (5k, half marathon, marathon) based on a user's target pace, powered by Google's Gemini API.",
+  "requestFramePermissions": []
+}
