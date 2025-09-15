@@ -74,3 +74,55 @@ Provide clear, concise descriptions for each day's workout, including a mix of e
     throw new Error("Failed to generate a training plan. The model may be overloaded. Please try again later.");
   }
 };
+
+
+export const generateFeedback = async (plan: RunningPlan, weekIndex: number): Promise<string> => {
+    // We want feedback for week with `weekIndex`, based on performance in weeks `0` to `weekIndex - 1`.
+    const previousWeeks = plan.weeks.slice(0, weekIndex);
+
+    let performanceSummary = "";
+    previousWeeks.forEach(week => {
+        performanceSummary += `Week ${week.weekNumber}:\n`;
+        week.dailyWorkouts.forEach(workout => {
+            let actual = "Not logged.";
+            if (workout.status === 'completed') {
+                actual = `Completed. Actual workout: ${workout.actualWorkout || 'Logged as complete.'}`;
+            } else if (workout.status === 'skipped') {
+                actual = "Skipped.";
+            }
+            performanceSummary += `- ${workout.day}: Planned "${workout.workout}". Status: ${actual}\n`;
+        });
+        performanceSummary += '\n';
+    });
+
+    if (performanceSummary.trim() === "") {
+        return "Log some workouts in the previous week to get feedback.";
+    }
+
+    const prompt = `You are an expert, encouraging running coach. A runner is following this training plan for a ${plan.title}.
+Their goal is to run a ${plan.title.split(' ')[0]} at a specific pace.
+
+Here is their logged performance from the previous weeks:
+${performanceSummary}
+
+Based *only* on the performance data above, provide brief, positive, and actionable feedback for the upcoming week (Week ${plan.weeks[weekIndex].weekNumber}).
+The plan for the upcoming week is:
+${plan.weeks[weekIndex].dailyWorkouts.map(d => `- ${d.day}: ${d.workout}`).join('\n')}
+
+Should they push harder, ease off, focus on recovery, or just stick to the plan?
+Keep your feedback concise and motivational (2-4 sentences). Do not repeat the plan. Address the runner directly (e.g., "You're doing great..."). Start directly with the feedback.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+              temperature: 0.8,
+            }
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error generating feedback:", error);
+        throw new Error("Failed to generate feedback. The model may be busy. Please try again.");
+    }
+};

@@ -1,7 +1,8 @@
-
 export interface DailyWorkout {
   day: string;
   workout: string;
+  status?: 'completed' | 'skipped';
+  actualWorkout?: string;
 }
 
 export interface WeeklyPlan {
