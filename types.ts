@@ -2,7 +2,10 @@ export interface DailyWorkout {
   day: string;
   workout: string;
   status?: 'completed' | 'skipped';
-  actualWorkout?: string;
+  actualWorkout?: string; // Notes
+  distance?: number; // in miles
+  timeMinutes?: number;
+  timeSeconds?: number;
 }
 
 export interface WeeklyPlan {

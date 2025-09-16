@@ -101,7 +101,15 @@ const App: React.FC = () => {
     }
   }, [plan]);
 
-  const handleUpdateWorkout = useCallback((weekIndex: number, dayIndex: number, status: DailyWorkout['status'], actualWorkout?: string) => {
+  const handleUpdateWorkout = useCallback((
+    weekIndex: number, 
+    dayIndex: number, 
+    status: DailyWorkout['status'], 
+    actualWorkout?: string,
+    distance?: number,
+    timeMinutes?: number,
+    timeSeconds?: number
+  ) => {
     setPlan(currentPlan => {
       if (!currentPlan) return null;
 
@@ -110,6 +118,20 @@ const App: React.FC = () => {
       
       workout.status = status;
       workout.actualWorkout = actualWorkout;
+      workout.distance = distance;
+      workout.timeMinutes = timeMinutes;
+      workout.timeSeconds = timeSeconds;
+
+      // If status is cleared or skipped, clean up data
+      if (status !== 'completed') {
+        delete workout.distance;
+        delete workout.timeMinutes;
+        delete workout.timeSeconds;
+        // Also clear notes if the status is being completely reset
+        if (status === undefined) {
+          delete workout.actualWorkout;
+        }
+      }
       
       return newPlan;
     });

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { RunningPlan } from '../types';
+import { RunningPlan, DailyWorkout } from '../types';
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable is not set");
@@ -48,7 +48,11 @@ Their target race pace is ${pace} per mile.
 The runner's goal race is on ${goalDate}.
 Today's date is ${todayDate}.
 
-The plan should be structured weekly and start from today, leading up to the race date. Ensure the plan gradually builds in intensity and mileage to prevent injury and have the runner peak for race day. The total duration of the plan must fit within the timeframe from today to the goal date. The final week should be a taper week.
+**IMPORTANT STRUCTURE RULE:** The training plan must be structured into weeks that end on Sunday.
+- The very first week should start on today's date (${todayDate}) and end on the upcoming Sunday. This means the first week might be a partial week (fewer than 7 days).
+- Every subsequent week must be a full week, running from Monday to Sunday.
+
+The plan should gradually build in intensity and mileage to prevent injury and have the runner peak for race day. The total duration of the plan must fit within the timeframe from today to the goal date. The final week should be a taper week.
 
 Provide clear, concise descriptions for each day's workout, including a mix of easy runs, long runs, speed work (like intervals or tempo runs), and rest days.`;
 
@@ -86,7 +90,31 @@ export const generateFeedback = async (plan: RunningPlan, weekIndex: number): Pr
         week.dailyWorkouts.forEach(workout => {
             let actual = "Not logged.";
             if (workout.status === 'completed') {
-                actual = `Completed. Actual workout: ${workout.actualWorkout || 'Logged as complete.'}`;
+                const details = [];
+                if (workout.distance && workout.distance > 0) {
+                    const timeStr = `${workout.timeMinutes || 0}m ${workout.timeSeconds || 0}s`;
+                    const totalSeconds = (workout.timeMinutes || 0) * 60 + (workout.timeSeconds || 0);
+
+                    if (totalSeconds > 0) {
+                         const paceInSecondsPerMile = totalSeconds / workout.distance;
+                         const paceMinutes = Math.floor(paceInSecondsPerMile / 60);
+                         const paceSeconds = Math.round(paceInSecondsPerMile % 60);
+                         const paceStr = `${paceMinutes}:${paceSeconds.toString().padStart(2, '0')} / mile`;
+                         details.push(`${workout.distance} miles in ${timeStr} (Pace: ${paceStr})`);
+                    } else {
+                        details.push(`${workout.distance} miles`);
+                    }
+                }
+                 if (workout.actualWorkout) {
+                    details.push(`Notes: "${workout.actualWorkout}"`);
+                }
+
+                if (details.length > 0) {
+                    actual = `Completed. Actual: ${details.join('. ')}`;
+                } else {
+                     actual = 'Logged as complete.';
+                }
+
             } else if (workout.status === 'skipped') {
                 actual = "Skipped.";
             }
@@ -102,10 +130,11 @@ export const generateFeedback = async (plan: RunningPlan, weekIndex: number): Pr
     const prompt = `You are an expert, encouraging running coach. A runner is following this training plan for a ${plan.title}.
 Their goal is to run a ${plan.title.split(' ')[0]} at a specific pace.
 
-Here is their logged performance from the previous weeks:
+Here is their logged performance from the previous weeks, including distance, time, calculated pace, and personal notes:
 ${performanceSummary}
 
-Based *only* on the performance data above, provide brief, positive, and actionable feedback for the upcoming week (Week ${plan.weeks[weekIndex].weekNumber}).
+Based *only* on the detailed performance data above, provide brief, positive, and actionable feedback for the upcoming week (Week ${plan.weeks[weekIndex].weekNumber}).
+Analyze their consistency, pace compared to planned workouts (if possible to infer), and any notes they've provided.
 The plan for the upcoming week is:
 ${plan.weeks[weekIndex].dailyWorkouts.map(d => `- ${d.day}: ${d.workout}`).join('\n')}
 

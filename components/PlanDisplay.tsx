@@ -5,7 +5,15 @@ import { CheckIcon, XIcon, PencilIcon, SparkleIcon } from './IconComponents';
 interface PlanDisplayProps {
   plan: RunningPlan;
   planStartDate: string;
-  onUpdateWorkout: (weekIndex: number, dayIndex: number, status: DailyWorkout['status'], actualWorkout?: string) => void;
+  onUpdateWorkout: (
+    weekIndex: number,
+    dayIndex: number,
+    status: DailyWorkout['status'],
+    actualWorkout?: string,
+    distance?: number,
+    timeMinutes?: number,
+    timeSeconds?: number
+  ) => void;
   onGetFeedback: (weekIndex: number) => void;
   feedback: { [week: number]: string };
   isFeedbackLoading: number | null;
@@ -32,26 +40,55 @@ interface DailyWorkoutCardProps {
 const DailyWorkoutCard: React.FC<DailyWorkoutCardProps> = ({ workout, date, weekIndex, dayIndex, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(workout.actualWorkout || '');
+  const [distance, setDistance] = useState(workout.distance?.toString() || '');
+  const [timeMinutes, setTimeMinutes] = useState(workout.timeMinutes?.toString() || '');
+  const [timeSeconds, setTimeSeconds] = useState(workout.timeSeconds?.toString() || '');
+
 
   const handleStartEditing = () => {
     setEditText(workout.actualWorkout || '');
+    setDistance(workout.distance?.toString() || '');
+    setTimeMinutes(workout.timeMinutes?.toString() || '');
+    setTimeSeconds(workout.timeSeconds?.toString() || '');
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    onUpdate(weekIndex, dayIndex, 'completed', editText);
+    onUpdate(
+        weekIndex, 
+        dayIndex, 
+        'completed', 
+        editText,
+        distance ? parseFloat(distance) : undefined,
+        timeMinutes ? parseInt(timeMinutes, 10) : undefined,
+        timeSeconds ? parseInt(timeSeconds, 10) : undefined
+    );
     setIsEditing(false);
   };
   
   const handleSkip = () => {
     onUpdate(weekIndex, dayIndex, 'skipped');
-    setIsEditing(false); // Make sure editing is off
+    setIsEditing(false);
   };
   
   const handleClearStatus = () => {
-    onUpdate(weekIndex, dayIndex, undefined, undefined);
+    onUpdate(weekIndex, dayIndex, undefined, undefined, undefined, undefined, undefined);
     setIsEditing(false);
   };
+
+  const calculatedPace = useMemo(() => {
+    if (workout.status !== 'completed' || !workout.distance || workout.distance <= 0) return null;
+    
+    const totalSeconds = (workout.timeMinutes || 0) * 60 + (workout.timeSeconds || 0);
+    if (totalSeconds <= 0) return null;
+
+    const paceInSecondsPerMile = totalSeconds / workout.distance;
+    const paceMinutes = Math.floor(paceInSecondsPerMile / 60);
+    const paceSeconds = Math.round(paceInSecondsPerMile % 60);
+    
+    return `${paceMinutes}:${paceSeconds.toString().padStart(2, '0')} / mile`;
+  }, [workout]);
+
 
   const statusStyles = {
     completed: 'bg-emerald-50 border-emerald-200',
@@ -74,27 +111,46 @@ const DailyWorkoutCard: React.FC<DailyWorkoutCardProps> = ({ workout, date, week
         <span className="font-semibold text-slate-700">Plan:</span> {workout.workout}
       </p>
 
-      {!isEditing && workout.status === 'completed' && workout.actualWorkout && (
-        <p className="text-slate-600 text-sm mt-2 pr-14 animate-fade-in">
-          <span className="font-semibold text-slate-700">Actual:</span> {workout.actualWorkout}
-        </p>
+      {!isEditing && workout.status === 'completed' && (
+        <div className="mt-2 space-y-1 text-sm text-slate-600 animate-fade-in pr-14">
+           {(workout.distance || calculatedPace) && (
+              <p>
+                <span className="font-semibold text-slate-700">Actual:</span>
+                {workout.distance && ` ${workout.distance} mi`}
+                {workout.timeMinutes !== undefined && workout.timeSeconds !== undefined && ` in ${workout.timeMinutes || 0}m ${workout.timeSeconds || 0}s`}
+                {calculatedPace && <span className="font-bold text-sky-600"> ({calculatedPace})</span>}
+            </p>
+           )}
+          {workout.actualWorkout && (
+            <p className="italic text-slate-500"><span className="font-semibold text-slate-700 not-italic">Notes:</span> "{workout.actualWorkout}"</p>
+          )}
+        </div>
       )}
 
       {isEditing && (
-        <div className="mt-2 animate-fade-in">
-          <label htmlFor={`actual-${weekIndex}-${dayIndex}`} className="block text-sm font-semibold text-slate-700 mb-1">
-            Log your actual workout:
-          </label>
-          <textarea
-            id={`actual-${weekIndex}-${dayIndex}`}
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            className="w-full p-2 text-sm text-slate-700 bg-white rounded-md border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-            rows={3}
-            placeholder="e.g., Ran 3.2 miles, felt strong."
-            autoFocus
-          />
-          <div className="flex gap-2 mt-2">
+        <div className="mt-3 space-y-3 animate-fade-in">
+           <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Log Actuals</label>
+              <div className="grid grid-cols-3 gap-2">
+                 <input type="number" value={distance} onChange={e => setDistance(e.target.value)} placeholder="Dist." aria-label="Distance in miles" className="w-full p-2 text-sm rounded-md border-slate-300 focus:ring-sky-500 focus:border-sky-500" min="0" step="0.01" />
+                 <input type="number" value={timeMinutes} onChange={e => setTimeMinutes(e.target.value)} placeholder="Mins" aria-label="Time in minutes" className="w-full p-2 text-sm rounded-md border-slate-300 focus:ring-sky-500 focus:border-sky-500" min="0"/>
+                 <input type="number" value={timeSeconds} onChange={e => setTimeSeconds(e.target.value)} placeholder="Secs" aria-label="Time in seconds" className="w-full p-2 text-sm rounded-md border-slate-300 focus:ring-sky-500 focus:border-sky-500" min="0" max="59"/>
+              </div>
+            </div>
+          <div>
+            <label htmlFor={`actual-${weekIndex}-${dayIndex}`} className="block text-sm font-semibold text-slate-700 mb-1">
+              Notes (optional):
+            </label>
+            <textarea
+              id={`actual-${weekIndex}-${dayIndex}`}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="w-full p-2 text-sm text-slate-700 bg-white rounded-md border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+              rows={2}
+              placeholder="e.g., Felt strong, beautiful weather."
+            />
+          </div>
+          <div className="flex gap-2">
             <button onClick={handleSave} className="px-3 py-1 bg-sky-600 text-white text-xs font-semibold rounded-md hover:bg-sky-700">Save</button>
             <button onClick={() => setIsEditing(false)} className="px-3 py-1 bg-slate-200 text-slate-700 text-xs font-semibold rounded-md hover:bg-slate-300">Cancel</button>
           </div>
@@ -190,6 +246,8 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({
     );
   };
 
+  let currentDatePointer = new Date(startDate);
+
   return (
     <div className="w-full max-w-4xl mx-auto mt-12 animate-fade-in">
       <div className="text-center mb-8 bg-white p-8 rounded-2xl shadow-lg border border-slate-200/80">
@@ -199,8 +257,15 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({
 
       <div className="space-y-6">
         {plan.weeks.map((week, weekIndex) => {
-          const weekStartDate = addDays(startDate, weekIndex * 7);
-          const weekEndDate = addDays(weekStartDate, 6);
+          const weekStartDate = new Date(currentDatePointer);
+          const daysInWeek = week.dailyWorkouts.length;
+          
+          if (daysInWeek === 0) return null; // Avoid rendering empty weeks
+          
+          const weekEndDate = addDays(weekStartDate, daysInWeek - 1);
+          
+          // Move pointer for the next week's start
+          currentDatePointer = addDays(weekEndDate, 1);
 
           return (
             <div key={week.weekNumber} className="bg-white p-6 rounded-2xl shadow-md border border-slate-200/60 transition-transform duration-300 hover:shadow-xl hover:-translate-y-1">
