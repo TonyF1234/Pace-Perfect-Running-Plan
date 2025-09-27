@@ -71,7 +71,12 @@ Provide clear, concise descriptions for each day's workout, including a mix of e
     // In case the API wraps the JSON in markdown backticks
     const cleanedJsonText = jsonText.replace(/^```json\n/, '').replace(/\n```$/, '');
     
-    return JSON.parse(cleanedJsonText) as RunningPlan;
+    const generatedPlan = JSON.parse(cleanedJsonText);
+    
+    return {
+      ...generatedPlan,
+      targetPace: pace,
+    };
 
   } catch (error) {
     console.error("Error generating running plan:", error);
@@ -127,19 +132,22 @@ export const generateFeedback = async (plan: RunningPlan, weekIndex: number): Pr
         return "Log some workouts in the previous week to get feedback.";
     }
 
-    const prompt = `You are an expert, encouraging running coach. A runner is following this training plan for a ${plan.title}.
-Their goal is to run a ${plan.title.split(' ')[0]} at a specific pace.
+    const prompt = `You are an expert, encouraging running coach. A runner is following a training plan for a ${plan.title}.
+Their goal is to run the race at a target pace of ${plan.targetPace} per mile.
 
 Here is their logged performance from the previous weeks, including distance, time, calculated pace, and personal notes:
 ${performanceSummary}
 
-Based *only* on the detailed performance data above, provide brief, positive, and actionable feedback for the upcoming week (Week ${plan.weeks[weekIndex].weekNumber}).
-Analyze their consistency, pace compared to planned workouts (if possible to infer), and any notes they've provided.
-The plan for the upcoming week is:
+The plan for the upcoming week (Week ${plan.weeks[weekIndex].weekNumber}) is:
 ${plan.weeks[weekIndex].dailyWorkouts.map(d => `- ${d.day}: ${d.workout}`).join('\n')}
 
-Should they push harder, ease off, focus on recovery, or just stick to the plan?
-Keep your feedback concise and motivational (2-4 sentences). Do not repeat the plan. Address the runner directly (e.g., "You're doing great..."). Start directly with the feedback.`;
+Based *only* on the detailed performance data above, provide detailed, insightful, and prescriptive feedback for the upcoming week. Your feedback should be structured in three parts:
+
+1.  **Overall Insight:** A brief, high-level summary of their recent training (2 sentences max).
+2.  **Key Observations:** A bulleted list of 2-3 specific, data-driven observations. Analyze their consistency, pacing (especially in relation to their target pace and the nature of the planned workouts like 'easy', 'tempo', etc.), and any notes they've provided. Use asterisks for bullet points.
+3.  **Focus for This Week:** A short paragraph with 1-2 actionable pieces of advice for the upcoming week. Should they push harder, ease off, focus on recovery, or adjust their approach to a specific workout?
+
+Address the runner directly in a positive and motivational tone (e.g., "You're doing great..."). Do not simply repeat the plan. Start directly with the feedback. Use markdown for bolding (**text**).`;
 
     try {
         const response = await ai.models.generateContent({

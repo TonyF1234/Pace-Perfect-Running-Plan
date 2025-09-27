@@ -183,6 +183,22 @@ const DailyWorkoutCard: React.FC<DailyWorkoutCardProps> = ({ workout, date, week
   );
 };
 
+const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
+  // Split text by bold markers (**), keeping the markers.
+  const parts = text.split(/(\*\*.*?\*\*)/g).filter(part => part.length > 0);
+
+  return (
+    <div style={{ whiteSpace: 'pre-wrap' }}>
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        return part;
+      })}
+    </div>
+  );
+};
+
 
 const PlanDisplay: React.FC<PlanDisplayProps> = ({
   plan,
@@ -217,7 +233,9 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({
             <SparkleIcon className="w-5 h-5 text-sky-500" />
             <h4 className="font-semibold text-sky-700">AI Coach Feedback</h4>
           </div>
-          <p className="mt-2 text-sm text-slate-700 italic">"{feedbackForWeek}"</p>
+          <div className="mt-2 text-sm text-slate-700">
+             <MarkdownRenderer text={feedbackForWeek} />
+          </div>
         </blockquote>
       );
     }

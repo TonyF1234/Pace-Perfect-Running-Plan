@@ -17,6 +17,7 @@ export interface WeeklyPlan {
 export interface RunningPlan {
   title: string;
   introduction: string;
+  targetPace: string;
   weeks: WeeklyPlan[];
   conclusion: string;
 }
